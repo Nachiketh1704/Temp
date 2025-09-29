@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,12 +10,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Building2, Eye, EyeOff } from 'lucide-react';
+import { Building2, Eye, EyeOff, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function SignupPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     companyName: '',
     contactName: '',
@@ -26,18 +31,52 @@ export default function SignupPage() {
     confirmPassword: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    // Client-side validation
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match');
+      setError('Passwords do not match');
+      setLoading(false);
       return;
     }
+    
     if (!agreed) {
-      alert('Please agree to the terms and conditions');
+      setError('Please agree to the terms and conditions');
+      setLoading(false);
       return;
     }
-    // Handle signup logic here
-    console.log('Signup attempt:', formData);
+
+    try {
+      const response = await fetch('/api/customer/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Something went wrong');
+      }
+
+      // Success
+      setSuccess(true);
+      
+      // Redirect to login page after 2 seconds
+      setTimeout(() => {
+        router.push('/login?message=Registration successful! Please sign in.');
+      }, 2000);
+
+    } catch (error) {
+      setError(error.message || 'Failed to create account. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -78,6 +117,22 @@ export default function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Error Display */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+
+            {/* Success Display */}
+            {success && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2 text-green-700">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm">Account created successfully! Redirecting to login...</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Company Information */}
               <div className="space-y-4">
@@ -266,8 +321,19 @@ export default function SignupPage() {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full h-11 text-base" disabled={!agreed}>
-                Create Vendor Account
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-base" 
+                disabled={!agreed || loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  'Create Vendor Account'
+                )}
               </Button>
             </form>
 

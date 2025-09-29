@@ -1,62 +1,122 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import connectDB from '../../../../../lib/mongodb';
-import User from '../../../../../models/User';
+import bcrypt from 'bcrypt';
+import prisma from '../../../../../lib/prisma';
 
 export async function POST(request) {
   try {
-    await connectDB();
-    
-    const { fullName, email, password, cnfPassword, phone } = await request.json();
+    const { 
+      companyName, 
+      contactName, 
+      email, 
+      phone, 
+      businessType, 
+      description, 
+      password, 
+      confirmPassword 
+    } = await request.json();
 
-    if (!fullName || !email || !password || !cnfPassword || !phone) {
+    // Validate required fields
+    if (!companyName || !contactName || !email || !password || !confirmPassword) {
       return NextResponse.json(
-        { message: "All fields are required" },
+        { message: "All required fields must be filled" },
         { status: 400 }
       );
     }
 
-    if (password !== cnfPassword) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { message: "Please enter a valid email address" },
+        { status: 400 }
+      );
+    }
+
+    // Check password match
+    if (password !== confirmPassword) {
       return NextResponse.json(
         { message: "Passwords do not match" },
         { status: 400 }
       );
     }
 
-    // Check for an existing user by email or phone.
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    // Check password strength
+    if (password.length < 6) {
+      return NextResponse.json(
+        { message: "Password must be at least 6 characters long" },
+        { status: 400 }
+      );
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
     if (existingUser) {
       return NextResponse.json(
-        { message: "A user with this email or phone number already exists." },
+        { message: "A user with this email already exists" },
         { status: 409 }
       );
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
     
-    // Create a new User instance. 
-    const newUser = new User({
-      fullName,
-      email,
-      phone,
-      password: hashedPassword,
+    // Create user and vendor (without transaction for development)
+    // Create user with VENDOR role first
+    const newUser = await prisma.user.create({
+      data: {
+        name: contactName,
+        email,
+        password: hashedPassword,
+        role: 'VENDOR',
+      }
     });
-    
-    await newUser.save();
 
+    // Create vendor profile
+    const newVendor = await prisma.vendor.create({
+      data: {
+        name: companyName,
+        userId: newUser.id,
+      }
+    });
+
+    const result = { user: newUser, vendor: newVendor };
+
+    // Return success response without sensitive data
     return NextResponse.json(
       {
-        message: "User registered successfully",
-        user: { id: newUser._id, fullName: newUser.fullName, email: newUser.email }
+        message: "Vendor account created successfully",
+        user: { 
+          id: result.user.id, 
+          name: result.user.name, 
+          email: result.user.email,
+          role: result.user.role
+        }
       },
       { status: 201 }
     );
 
   } catch (error) {
-    console.error("Error in customer registration:", error);
+    console.error("Error in vendor registration:", error);
+    console.error("Error details:", {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
+    // Handle Prisma unique constraint errors
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { message: "A user with this email already exists" },
+        { status: 409 }
+      );
+    }
+    
     return NextResponse.json(
-      { message: "Internal server error" },
+      { message: "Internal server error", error: error.message },
       { status: 500 }
     );
   }

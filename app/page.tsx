@@ -255,8 +255,8 @@ import Image from "next/image";
 import { useState } from "react";
 import React from "react";   
 import Navbar from "../components/ui/Navbar/page";
-import Menu from "../components//ui/Menu/page";
- import Footer from "../Components//ui/Footer/page";
+import Menu from "../components/ui/MENU/page";
+import Footer from "../components/ui/Footer/page";
 import Link from "next/link";
 
 
