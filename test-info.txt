@@ -1,0 +1,18 @@
+﻿WebRTC Audio Test Information
+Generated: 10/21/2025 13:14:37
+
+WINDOW 1 (User A):
+Backend URL: http://localhost:3001
+Auth Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQxLCJlbWFpbCI6InRlc3R1c2VyMUBsb2FkcmlkZXIuY29tIiwiaXNFbWFpbFZlcmlmaWVkIjpmYWxzZSwiaWF0IjoxNzYxMDMyNjczLCJleHAiOjE3NjE2Mzc0NzN9.d_ddo-K_w9wpR2xyvEXeA5o7mrm20ax6YIuv-V2830Y
+User ID: 41
+Conversation ID: 70
+Other User ID: 42
+
+WINDOW 2 (User B):
+Backend URL: http://localhost:3001
+Auth Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQyLCJlbWFpbCI6InRlc3R1c2VyMkBsb2FkcmlkZXIuY29tIiwiaXNFbWFpbFZlcmlmaWVkIjpmYWxzZSwiaWF0IjoxNzYxMDMyNjc0LCJleHAiOjE3NjE2Mzc0NzR9.DzcCTtWHx8QvVhHKWh5bNyYEwg98n7GKUXfxIsb4AUI
+User ID: 42
+Conversation ID: 70
+Other User ID: 41
+
+Test Page: http://localhost:3001/public/test-audio.html
