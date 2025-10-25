@@ -617,26 +617,29 @@ class WebRTCService {
         if (inCallManagerAvailable && InCallManager && typeof InCallManager.start === 'function') {
           console.log('🎯 WebRTC: Using InCallManager for audio routing');
           try {
+            // Start with earpiece (natural call mode) - user can toggle to speaker later
             InCallManager.start({ 
               media: type, 
               auto: true, 
               ringback: '',
-              // Force audio session for calls
-              speaker: true, // Start with speaker ON for testing
-              forceSpeakerphoneOn: true
+              // Start with earpiece for natural call experience
+              speaker: false,
+              forceSpeakerphoneOn: false
             });
-            console.log('✅ WebRTC: InCallManager started successfully with speaker ON');
+            // Explicitly set speaker to false to ensure earpiece mode
+            InCallManager.setSpeakerphoneOn(false);
+            console.log('✅ WebRTC: InCallManager started successfully with earpiece mode');
           } catch (error) {
             console.error('❌ WebRTC: InCallManager.start() failed:', error);
             console.log('📞 WebRTC: Falling back to custom AudioRouteModule...');
             await audioRouting.startAudioRouting();
-            await audioRouting.setSpeakerOn(true);
+            await audioRouting.setSpeakerOn(false); // Start with earpiece
           }
         } else if (audioRouting.isAvailable()) {
           console.log('🎯 WebRTC: Using custom AudioRouteModule for audio routing');
           await audioRouting.startAudioRouting();
-          await audioRouting.setSpeakerOn(true); // Start with speaker ON
-          console.log('✅ WebRTC: Custom AudioRouteModule started with speaker ON');
+          await audioRouting.setSpeakerOn(false); // Start with earpiece
+          console.log('✅ WebRTC: Custom AudioRouteModule started with earpiece mode');
         } else {
           console.log('⚠️ WebRTC: No audio routing available - using fallback');
           this.fallbackAudioRouting(false); // Start with earpiece
