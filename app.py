@@ -11,9 +11,6 @@ from gtts import gTTS
 from io import BytesIO
 import base64
 from flask_sock import Sock
-import torch
-from torchvision import transforms
-from PIL import Image
 import requests
 
 
@@ -56,27 +53,6 @@ VOSK_MODELS = {
     "as": "vosk-model-as-0.1",
 }
 
-MODEL_PATH = 'models/crop_disease_model.pth'
-LABELS_PATH = 'models/disease_labels.json'
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-try:
-    disease_model = torch.load(MODEL_PATH, map_location=device)
-    disease_model.eval()
-    with open(LABELS_PATH, 'r') as f:
-        disease_labels = json.load(f)
-except Exception as e:
-    print("Error loading crop disease model:", e)
-    disease_model = None
-    disease_labels = []
-
-image_transforms = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
-])
-
 def t(text):
     lang = session.get("lang", "en")
     if lang == "en":
@@ -88,27 +64,17 @@ def t(text):
         return text
 
 def detect_crop_disease(image_path):
-    if disease_model is None:
+    model = ai_models.get('disease_detection')
+    if not model:
         return {"crop": "Unknown", "status": "Model not loaded", "confidence": "0%"}
-    try:
-        img = Image.open(image_path).convert('RGB')
-        img_tensor = image_transforms(img).unsqueeze(0).to(device)
-        with torch.no_grad():
-            output = disease_model(img_tensor)
-        probs = torch.nn.functional.softmax(output, dim=1)[0]
-        idx = torch.argmax(probs).item()
-        confidence = probs[idx].item()
-        label = disease_labels[idx]
-        if '___' in label:
-            crop_name, status = label.split('___')
-            status = status.replace('_',' ').title()
-        else:
-            crop_name = 'Unknown'
-            status = label.replace('_',' ').title()
-        return {"crop": crop_name, "status": status, "confidence": f"{confidence*100:.2f}%"}
-    except Exception as e:
-        print("Disease detection error:", e)
-        return {"crop": "Unknown", "status": "Error", "confidence": "0%"}
+    
+    result = model.predict_disease(image_path=image_path)
+    
+    return {
+        "crop": result.get('crop', 'Unknown'),
+        "status": result.get('status', 'Unknown'),
+        "confidence": result.get('confidence_percentage', '0%')
+    }
 
 def load_soil_data():
     with open("soil_data.json", "r", encoding="utf-8") as f:

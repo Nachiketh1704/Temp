@@ -146,3 +146,18 @@ wrapt==2.0.1
 xgboost==3.1.3
 yarl==1.22.0
 zipp==3.23.0
+# Machine Learning - TensorFlow/Keras for model loading
+tensorflow==2.18.0
+keras==3.8.0
+# Audio processing
+vosk==0.3.45
+# Text-to-speech
+gTTS==2.5.4
+# Translation
+deep-translator==1.11.4
+# Flask web framework
+Flask==3.1.0
+Flask-CORS==5.0.0
+Flask-Sock==0.7.0
+# Utilities
+Werkzeug==3.1.3
