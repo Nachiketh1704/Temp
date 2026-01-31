@@ -18,23 +18,23 @@ class CropRecommendationModel:
         try:
             if os.path.exists(model_path):
                 self.model = keras.models.load_model(model_path)
-                print(f"✓ Loaded crop recommendation model from {model_path}")
+                print(f"Loaded crop recommendation model from {model_path}")
             else:
-                print(f"⚠ Model file not found: {model_path}")
+                print(f"Model file not found: {model_path}")
                 
             if os.path.exists(params_path):
                 with open(params_path, 'r') as f:
                     self.params = json.load(f)
-                print(f"✓ Loaded crop parameters from {params_path}")
+                print(f"Loaded crop parameters from {params_path}")
             else:
-                print(f"⚠ Params file not found: {params_path}")
+                print(f"Params file not found: {params_path}")
                 
             if os.path.exists(encoder_path):
                 with open(encoder_path, 'rb') as f:
                     self.label_encoder = pickle.load(f)
-                print(f"✓ Loaded label encoder from {encoder_path}")
+                print(f"Loaded label encoder from {encoder_path}")
             else:
-                print(f"⚠ Encoder file not found: {encoder_path}")
+                print(f"Encoder file not found: {encoder_path}")
                 
             if self.model and self.label_encoder:
                 self.is_trained = True

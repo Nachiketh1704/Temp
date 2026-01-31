@@ -14,9 +14,9 @@ class YieldProfitModel:
                 with open(model_path, 'rb') as f:
                     self.model = pickle.load(f)
                 self.is_trained = True
-                print(f"✓ Loaded yield/profit model from {model_path}")
+                print(f"Loaded yield/profit model from {model_path}")
             else:
-                print(f"⚠ Model file not found: {model_path}")
+                print(f"Model file not found: {model_path}")
         except Exception as e:
             print(f"Error loading yield/profit model: {e}")
     

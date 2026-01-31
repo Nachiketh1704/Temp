@@ -14,9 +14,9 @@ class SustainabilityScorer:
                 with open(model_path, 'rb') as f:
                     self.model = pickle.load(f)
                 self.is_trained = True
-                print(f"✓ Loaded sustainability scorer from {model_path}")
+                print(f"Loaded sustainability scorer from {model_path}")
             else:
-                print(f"⚠ Model file not found: {model_path}")
+                print(f"Model file not found: {model_path}")
         except Exception as e:
             print(f"Error loading sustainability scorer: {e}")
     

@@ -17,18 +17,18 @@ class PlantDiseaseDetector:
         try:
             if os.path.exists(model_path):
                 self.model = keras.models.load_model(model_path)
-                print(f"✓ Loaded disease detection model from {model_path}")
+                print(f"Loaded disease detection model from {model_path}")
             else:
-                print(f"⚠ Model file not found: {model_path}")
+                print(f"Model file not found: {model_path}")
             
             if os.path.exists(params_path):
                 with open(params_path, 'r') as f:
                     self.params = json.load(f)
-                self.class_names = self.params.get('class_names', [])
-                print(f"✓ Loaded disease parameters from {params_path}")
-                print(f"  Classes: {len(self.class_names)} disease categories")
+                self.class_names = self.params.get('class_indices', [])
+                print(f"Loaded disease parameters from {params_path}")
+                print(f"Classes: {len(self.class_names)} disease categories")
             else:
-                print(f"⚠ Params file not found: {params_path}")
+                print(f"Params file not found: {params_path}")
             
             if self.model and self.class_names:
                 self.is_trained = True
