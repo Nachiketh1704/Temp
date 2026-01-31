@@ -14,7 +14,9 @@ class ConversationManager:
                 'parameters': {},
                 'missing_params': [],
                 'current_param': None,
-                'history': []
+                'history': [],
+                'user_state': None,  # Store user's state for mean values
+                'location': {}  # Store location data
             }
         return self.conversations[session_id]
     
@@ -107,6 +109,23 @@ class ConversationManager:
     
     def handle_new_query(self, session_id: str):
         self.clear_conversation(session_id)
+    
+    def set_user_location(self, session_id: str, location: Dict):
+        """Store user's location (state/district) for auto-populating parameters"""
+        conv = self.get_or_create_conversation(session_id)
+        conv['location'] = location
+        if 'state' in location:
+            conv['user_state'] = location['state']
+    
+    def get_user_state(self, session_id: str) -> Optional[str]:
+        """Get the user's state for accessing state-specific mean values"""
+        conv = self.get_or_create_conversation(session_id)
+        return conv.get('user_state')
+    
+    def get_location(self, session_id: str) -> Dict:
+        """Get stored location data"""
+        conv = self.get_or_create_conversation(session_id)
+        return conv.get('location', {})
 
 
 class ModelRouter:    

@@ -54,9 +54,23 @@ VOSK_MODELS = {
 }
 
 def t(text):
+    """Enhanced translation function with offline fallback"""
     lang = session.get("lang", "en")
     if lang == "en":
         return text
+    
+    # Try offline translation first for better performance
+    try:
+        import json
+        with open('offline_translation.json', 'r', encoding='utf-8') as f:
+            translations = json.load(f)
+        
+        if lang in translations and text in translations[lang]:
+            return translations[lang][text]
+    except:
+        pass
+    
+    # Fall back to Google Translator
     try:
         translator = GoogleTranslator(source='en', target=lang)
         return translator.translate(text)
@@ -208,8 +222,10 @@ def chat():
     
     if conversation_manager.is_collecting_params(session_id):
         current_param = conversation_manager.get_current_param(session_id)
+        user_state = conversation_manager.get_user_state(session_id)
         
-        value = nlp_processor.extract_single_value(user_msg, current_param)
+        # Enhanced value extraction with state-specific means
+        value = nlp_processor.extract_single_value(user_msg, current_param, user_state)
         
         if value is not None:
             conversation_manager.add_parameter(session_id, current_param, value)
@@ -235,10 +251,18 @@ def chat():
         processed = nlp_processor.process_query(user_msg)
         intent = processed['intent']
         parameters = processed['parameters']
+        location = processed['location']
+        
+        # Store location for state-specific means
+        if location:
+            conversation_manager.set_user_location(session_id, location)
         
         if intent == 'general' or not intent:
             reply = "I can help you with:\n• Crop recommendations\n• Yield and profit predictions\n• Sustainability scoring\n• Disease detection\n\nWhat would you like to know?"
         else:
+            # Auto-populate parameters based on location
+            parameters = nlp_processor.auto_populate_parameters(intent, parameters, location)
+            
             conversation_manager.set_intent(session_id, intent)
             conversation_manager.add_parameters(session_id, parameters)
             
@@ -246,8 +270,20 @@ def chat():
             
             if missing:
                 conversation_manager.set_missing_params(session_id, missing)
-                reply = f"I understand you want {intent.replace('_', ' ')}. "
-                reply += nlp_processor.generate_follow_up_question(missing)
+                
+                # Skip asking for parameters that can be inferred
+                # Only ask for essential parameters like N, P, K, crop
+                essential_params = ['N', 'P', 'K', 'crop', 'farm_size', 'irrigation_quality', 'fertilizer_usage']
+                filtered_missing = [p for p in missing if p in essential_params or p == 'image_path']
+                
+                if filtered_missing:
+                    conversation_manager.set_missing_params(session_id, filtered_missing)
+                    reply = f"I understand you want {intent.replace('_', ' ')}. "
+                    reply += nlp_processor.generate_follow_up_question(filtered_missing)
+                else:
+                    # All parameters available, proceed directly
+                    result = model_router.route_to_model(intent, parameters)
+                    reply = model_router.format_response(intent, result)
             else:
                 result = model_router.route_to_model(intent, parameters)
                 reply = model_router.format_response(intent, result)

@@ -1,0 +1,326 @@
+{
+  "Andhra Pradesh": {
+    "N": 245,
+    "P": 42,
+    "K": 280,
+    "temperature": 28.5,
+    "humidity": 65,
+    "ph": 7.2,
+    "rainfall": 940
+  },
+  "Arunachal Pradesh": {
+    "N": 180,
+    "P": 35,
+    "K": 190,
+    "temperature": 24,
+    "humidity": 80,
+    "ph": 5.8,
+    "rainfall": 2800
+  },
+  "Assam": {
+    "N": 200,
+    "P": 38,
+    "K": 210,
+    "temperature": 25,
+    "humidity": 82,
+    "ph": 5.5,
+    "rainfall": 2200
+  },
+  "Bihar": {
+    "N": 220,
+    "P": 45,
+    "K": 240,
+    "temperature": 26,
+    "humidity": 68,
+    "ph": 7.5,
+    "rainfall": 1100
+  },
+  "Chhattisgarh": {
+    "N": 210,
+    "P": 40,
+    "K": 230,
+    "temperature": 27,
+    "humidity": 70,
+    "ph": 6.8,
+    "rainfall": 1300
+  },
+  "Goa": {
+    "N": 190,
+    "P": 36,
+    "K": 200,
+    "temperature": 27.5,
+    "humidity": 78,
+    "ph": 6.2,
+    "rainfall": 2900
+  },
+  "Gujarat": {
+    "N": 180,
+    "P": 32,
+    "K": 260,
+    "temperature": 28,
+    "humidity": 55,
+    "ph": 7.8,
+    "rainfall": 800
+  },
+  "Haryana": {
+    "N": 240,
+    "P": 48,
+    "K": 280,
+    "temperature": 25,
+    "humidity": 60,
+    "ph": 8.0,
+    "rainfall": 600
+  },
+  "Himachal Pradesh": {
+    "N": 160,
+    "P": 30,
+    "K": 180,
+    "temperature": 19,
+    "humidity": 65,
+    "ph": 6.5,
+    "rainfall": 1500
+  },
+  "Jharkhand": {
+    "N": 200,
+    "P": 38,
+    "K": 220,
+    "temperature": 26,
+    "humidity": 70,
+    "ph": 6.0,
+    "rainfall": 1400
+  },
+  "Karnataka": {
+    "N": 210,
+    "P": 40,
+    "K": 250,
+    "temperature": 26.5,
+    "humidity": 62,
+    "ph": 6.8,
+    "rainfall": 1150
+  },
+  "Kerala": {
+    "N": 195,
+    "P": 38,
+    "K": 220,
+    "temperature": 27,
+    "humidity": 76,
+    "ph": 5.5,
+    "rainfall": 3000
+  },
+  "Madhya Pradesh": {
+    "N": 205,
+    "P": 42,
+    "K": 235,
+    "temperature": 26.5,
+    "humidity": 58,
+    "ph": 7.2,
+    "rainfall": 1100
+  },
+  "Maharashtra": {
+    "N": 215,
+    "P": 43,
+    "K": 260,
+    "temperature": 27,
+    "humidity": 60,
+    "ph": 7.5,
+    "rainfall": 1200
+  },
+  "Manipur": {
+    "N": 185,
+    "P": 35,
+    "K": 195,
+    "temperature": 23,
+    "humidity": 78,
+    "ph": 5.8,
+    "rainfall": 1800
+  },
+  "Meghalaya": {
+    "N": 175,
+    "P": 32,
+    "K": 185,
+    "temperature": 24,
+    "humidity": 85,
+    "ph": 5.2,
+    "rainfall": 2500
+  },
+  "Mizoram": {
+    "N": 180,
+    "P": 34,
+    "K": 190,
+    "temperature": 24,
+    "humidity": 80,
+    "ph": 5.5,
+    "rainfall": 2100
+  },
+  "Nagaland": {
+    "N": 185,
+    "P": 35,
+    "K": 195,
+    "temperature": 23.5,
+    "humidity": 82,
+    "ph": 5.6,
+    "rainfall": 2000
+  },
+  "Odisha": {
+    "N": 205,
+    "P": 40,
+    "K": 225,
+    "temperature": 27.5,
+    "humidity": 75,
+    "ph": 6.5,
+    "rainfall": 1500
+  },
+  "Punjab": {
+    "N": 250,
+    "P": 50,
+    "K": 290,
+    "temperature": 24.5,
+    "humidity": 58,
+    "ph": 8.2,
+    "rainfall": 650
+  },
+  "Rajasthan": {
+    "N": 170,
+    "P": 30,
+    "K": 240,
+    "temperature": 28,
+    "humidity": 45,
+    "ph": 8.0,
+    "rainfall": 500
+  },
+  "Sikkim": {
+    "N": 170,
+    "P": 32,
+    "K": 180,
+    "temperature": 18,
+    "humidity": 72,
+    "ph": 5.8,
+    "rainfall": 2700
+  },
+  "Tamil Nadu": {
+    "N": 230,
+    "P": 44,
+    "K": 270,
+    "temperature": 29,
+    "humidity": 68,
+    "ph": 7.0,
+    "rainfall": 950
+  },
+  "Telangana": {
+    "N": 235,
+    "P": 42,
+    "K": 275,
+    "temperature": 28,
+    "humidity": 63,
+    "ph": 7.3,
+    "rainfall": 900
+  },
+  "Tripura": {
+    "N": 190,
+    "P": 36,
+    "K": 205,
+    "temperature": 25,
+    "humidity": 80,
+    "ph": 5.7,
+    "rainfall": 2100
+  },
+  "Uttar Pradesh": {
+    "N": 230,
+    "P": 46,
+    "K": 270,
+    "temperature": 26,
+    "humidity": 65,
+    "ph": 7.8,
+    "rainfall": 900
+  },
+  "Uttarakhand": {
+    "N": 175,
+    "P": 34,
+    "K": 195,
+    "temperature": 21,
+    "humidity": 68,
+    "ph": 6.8,
+    "rainfall": 1600
+  },
+  "West Bengal": {
+    "N": 215,
+    "P": 42,
+    "K": 245,
+    "temperature": 26.5,
+    "humidity": 75,
+    "ph": 6.5,
+    "rainfall": 1600
+  },
+  "Andaman and Nicobar Islands": {
+    "N": 185,
+    "P": 35,
+    "K": 200,
+    "temperature": 28,
+    "humidity": 82,
+    "ph": 6.0,
+    "rainfall": 3000
+  },
+  "Chandigarh": {
+    "N": 240,
+    "P": 48,
+    "K": 280,
+    "temperature": 24.5,
+    "humidity": 60,
+    "ph": 8.0,
+    "rainfall": 650
+  },
+  "Dadra and Nagar Haveli and Daman and Diu": {
+    "N": 195,
+    "P": 38,
+    "K": 215,
+    "temperature": 27.5,
+    "humidity": 70,
+    "ph": 6.8,
+    "rainfall": 2000
+  },
+  "Delhi": {
+    "N": 235,
+    "P": 47,
+    "K": 275,
+    "temperature": 25,
+    "humidity": 62,
+    "ph": 7.9,
+    "rainfall": 700
+  },
+  "Jammu and Kashmir": {
+    "N": 165,
+    "P": 32,
+    "K": 185,
+    "temperature": 17,
+    "humidity": 65,
+    "ph": 7.0,
+    "rainfall": 1100
+  },
+  "Ladakh": {
+    "N": 140,
+    "P": 25,
+    "K": 160,
+    "temperature": 8,
+    "humidity": 45,
+    "ph": 7.5,
+    "rainfall": 100
+  },
+  "Lakshadweep": {
+    "N": 180,
+    "P": 34,
+    "K": 195,
+    "temperature": 28.5,
+    "humidity": 80,
+    "ph": 7.8,
+    "rainfall": 1600
+  },
+  "Puducherry": {
+    "N": 230,
+    "P": 44,
+    "K": 265,
+    "temperature": 28.5,
+    "humidity": 70,
+    "ph": 7.2,
+    "rainfall": 1200
+  }
+}

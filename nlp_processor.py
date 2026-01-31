@@ -1,5 +1,6 @@
 import spacy
 import re
+import json
 from typing import Dict, List, Tuple, Optional
 
 class NLPProcessor:    
@@ -10,6 +11,20 @@ class NLPProcessor:
             import os
             os.system('python -m spacy download en_core_web_sm')
             self.nlp = spacy.load('en_core_web_sm')
+        
+        # Load state agricultural data for mean values
+        try:
+            with open('state_agricultural_data.json', 'r', encoding='utf-8') as f:
+                self.state_data = json.load(f)
+        except:
+            self.state_data = {}
+        
+        # Load offline translations for multi-language support
+        try:
+            with open('offline_translation.json', 'r', encoding='utf-8') as f:
+                self.translations = json.load(f)
+        except:
+            self.translations = {}
         
         self.intent_patterns = {
             'crop_recommendation': [
@@ -47,10 +62,23 @@ class NLPProcessor:
             'fertilizer_usage': r'fertilizer[:\s]+(\d+\.?\d*)|fertilizer\s*usage[:\s]+(\d+\.?\d*)',
         }
         
+        # Expanded crop names with more varieties
         self.crop_names = [
             'rice', 'wheat', 'maize', 'corn', 'sugarcane', 'cotton', 'bajra',
             'jowar', 'barley', 'groundnut', 'peanut', 'pulses', 'chickpea',
-            'soybean', 'potato', 'tomato', 'onion', 'mustard', 'sunflower'
+            'soybean', 'potato', 'tomato', 'onion', 'mustard', 'sunflower',
+            'kidneybeans', 'pigeonpeas', 'mothbeans', 'mungbean', 'blackgram',
+            'lentil', 'pomegranate', 'banana', 'mango', 'grapes', 'watermelon',
+            'muskmelon', 'apple', 'orange', 'papaya', 'coconut', 'jute', 'coffee'
+        ]
+        
+        # Patterns to detect "I don't know" responses
+        self.dont_know_patterns = [
+            r"don'?t know", r"not sure", r"no idea", r"don'?t have",
+            r"can'?t say", r"unsure", r"unknown", r"नहीं पता", r"मालूम नहीं",
+            r"పता नहीं", r"ఎరుగదు", r"தெરியாது", r"അറിയില്ല", r"ଜାଣି ନାହିଁ",
+            r"জানি না", r"ਪਤਾ ਨਹੀਂ", r"माहित नाही", r"ખબર નથી", r"معلوم نہیں",
+            r"ಗೊತ್ತಿಲ್ಲ", r"নাজানো"
         ]
     
     def detect_intent(self, text: str) -> List[Tuple[str, float]]:
@@ -152,23 +180,98 @@ class NLPProcessor:
         param = missing_params[0]
         
         questions = {
-            'N': 'What is the Nitrogen content in your soil? (in kg/ha)',
-            'P': 'What is the Phosphorus content in your soil? (in kg/ha)',
-            'K': 'What is the Potassium content in your soil? (in kg/ha)',
-            'ph': 'What is your soil pH level? (typically between 5-8)',
-            'temperature': 'What is the average temperature in your region? (in °C)',
-            'humidity': 'What is the average humidity? (in %)',
-            'rainfall': 'What is the average rainfall in your area? (in mm)',
-            'farm_size': 'What is your farm size? (in hectares)',
-            'irrigation_quality': 'How would you rate your irrigation quality? (0.3 for poor, 0.7 for good, 1.0 for excellent)',
-            'fertilizer_usage': 'What is your fertilizer usage ratio? (0.5 for low, 1.0 for normal, 2.0 for high)',
+            'N': 'What is the Nitrogen content in your soil? (in kg/ha, or say "don\'t know" for average)',
+            'P': 'What is the Phosphorus content in your soil? (in kg/ha, or say "don\'t know" for average)',
+            'K': 'What is the Potassium content in your soil? (in kg/ha, or say "don\'t know" for average)',
+            'ph': 'What is your soil pH level? (typically 5-8, or say "don\'t know" for average)',
+            'temperature': 'What is the average temperature in your region? (in °C, or say "don\'t know" for average)',
+            'humidity': 'What is the average humidity? (in %, or say "don\'t know" for average)',
+            'rainfall': 'What is the average rainfall in your area? (in mm, or say "don\'t know" for average)',
+            'farm_size': 'What is your farm size? (in hectares, or say "don\'t know" for 1 hectare)',
+            'irrigation_quality': 'How would you rate your irrigation quality? (0.3 for poor, 0.7 for good, 1.0 for excellent, or say "don\'t know" for 0.7)',
+            'fertilizer_usage': 'What is your fertilizer usage ratio? (0.5 for low, 1.0 for normal, 2.0 for high, or say "don\'t know" for 1.0)',
             'crop': 'Which crop are you growing or planning to grow?',
             'image_path': 'Please upload an image of the plant leaf to detect disease.'
         }
         
         return questions.get(param, f'Please provide value for {param}')
     
-    def extract_single_value(self, text: str, param: str) -> Optional[float]:
+    def is_dont_know_response(self, text: str) -> bool:
+        """Check if the user's response indicates they don't know"""
+        text_lower = text.lower()
+        for pattern in self.dont_know_patterns:
+            if re.search(pattern, text_lower):
+                return True
+        return False
+    
+    def get_state_mean_values(self, state: str) -> Dict:
+        """Get mean agricultural values for a given state"""
+        if state in self.state_data:
+            return self.state_data[state].copy()
+        
+        # If state not found, return overall averages
+        return {
+            'N': 205,
+            'P': 40,
+            'K': 230,
+            'temperature': 26,
+            'humidity': 68,
+            'ph': 6.8,
+            'rainfall': 1400
+        }
+    
+    def auto_populate_parameters(self, intent: str, parameters: Dict, location: Dict) -> Dict:
+        """Auto-populate parameters based on location and state data"""
+        enriched_params = parameters.copy()
+        
+        # Get state from location
+        state = location.get('state', '')
+        
+        if state and state in self.state_data:
+            state_means = self.state_data[state]
+            
+            # Auto-populate environmental parameters if not provided
+            if 'temperature' not in enriched_params:
+                enriched_params['temperature'] = state_means['temperature']
+            if 'humidity' not in enriched_params:
+                enriched_params['humidity'] = state_means['humidity']
+            if 'rainfall' not in enriched_params:
+                enriched_params['rainfall'] = state_means['rainfall']
+            if 'ph' not in enriched_params:
+                enriched_params['ph'] = state_means['ph']
+            
+            # For soil nutrients, only auto-populate if completely missing
+            # Users might want to provide their specific values
+        
+        return enriched_params
+    
+    def extract_single_value(self, text: str, param: str, state: str = None) -> Optional[float]:
+        """Extract single value from text, or use mean if user doesn't know"""
+        
+        # Check if user doesn't know
+        if self.is_dont_know_response(text):
+            # Return state-specific mean or default mean
+            if state and state in self.state_data:
+                state_means = self.state_data[state]
+                if param in state_means:
+                    return state_means[param]
+            
+            # Default means for different parameters
+            default_means = {
+                'N': 205,
+                'P': 40,
+                'K': 230,
+                'temperature': 26,
+                'humidity': 68,
+                'ph': 6.8,
+                'rainfall': 1400,
+                'farm_size': 1,
+                'irrigation_quality': 0.7,
+                'fertilizer_usage': 1.0
+            }
+            return default_means.get(param, 0)
+        
+        # Try to extract numeric value
         numbers = re.findall(r'\d+\.?\d*', text)
         if numbers:
             try:
@@ -176,10 +279,19 @@ class NLPProcessor:
             except:
                 pass
         
+        # Handle crop names
         if param == 'crop':
             text_lower = text.lower()
+            
+            # Check for translated crop names
+            for lang, translations in self.translations.items():
+                for eng_crop, translated_crop in translations.items():
+                    if translated_crop.lower() in text_lower:
+                        return eng_crop.lower()
+            
+            # Check for English crop names
             for crop in self.crop_names:
                 if crop in text_lower:
-                    return crop.capitalize()
+                    return crop
         
         return None
