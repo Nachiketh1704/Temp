@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateTileImageMap } from '@/data/tileImages';
 
 const DRONE_COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#A855F7',
@@ -8,17 +7,12 @@ const DRONE_COLORS = [
 ];
 
 export const TacticalMap = ({ grid, agents, config }) => {
-  const gridWidth = grid?.width || config?.grid_width || 17;
-  const gridHeight = grid?.height || config?.grid_height || 15;
-  
-  // Memoize arrays to prevent unnecessary re-renders
-  const visitedTiles = useMemo(() => grid?.visited_tiles || [], [grid?.visited_tiles]);
-  const targetPositions = useMemo(() => grid?.target_positions || [], [grid?.target_positions]);
-  const allTargets = useMemo(() => grid?.all_targets || [], [grid?.all_targets]);
+  const gridWidth = grid?.width || config?.grid_width || 20;
+  const gridHeight = grid?.height || config?.grid_height || 20;
+  const visitedTiles = grid?.visited_tiles || [];
+  const targetPositions = grid?.target_positions || [];
 
   const [droneTrails, setDroneTrails] = useState({});
-  const [flippedTiles, setFlippedTiles] = useState(new Set());
-  const [tileImageMap, setTileImageMap] = useState({});
   const prevAgentsRef = useRef(agents);
 
   useEffect(() => {
@@ -42,28 +36,6 @@ export const TacticalMap = ({ grid, agents, config }) => {
     }
     prevAgentsRef.current = agents;
   }, [agents]);
-
-  // Generate tile images on mount or grid size change
-  useEffect(() => {
-    // Use all_targets for image mapping (shows where targets actually are)
-    const targetsForMapping = allTargets.length > 0 ? allTargets : targetPositions;
-    const imageMap = generateTileImageMap(gridWidth, gridHeight, targetsForMapping);
-    setTileImageMap(imageMap);
-    setFlippedTiles(new Set()); // Reset flipped tiles when grid changes
-  }, [gridWidth, gridHeight, allTargets, targetPositions]);
-
-  const handleTileClick = (x, y) => {
-    const key = `${x},${y}`;
-    setFlippedTiles(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(key)) {
-        newSet.delete(key);
-      } else {
-        newSet.add(key);
-      }
-      return newSet;
-    });
-  };
 
   const visitedSet = useMemo(() => {
     const set = new Set();
@@ -151,8 +123,6 @@ export const TacticalMap = ({ grid, agents, config }) => {
               const hasTarget = targetSet.has(key);
               const agent = agentMap.get(key);
               const trail = trailMap.get(key);
-              const isFlipped = flippedTiles.has(key);
-              const tileImage = tileImageMap[key];
 
               let bgColor = '#18181B';
               if (trail) {
@@ -165,66 +135,39 @@ export const TacticalMap = ({ grid, agents, config }) => {
               return (
                 <div
                   key={key}
-                  className="tile-container"
+                  className="grid-tile relative rounded-sm transition-colors duration-200"
                   style={{
                     width: tileSize,
                     height: tileSize,
+                    backgroundColor: bgColor
                   }}
-                  onClick={() => handleTileClick(x, y)}
                   data-testid={`tile-${x}-${y}`}
                 >
-                  <div 
-                    className={`tile-inner ${isFlipped ? 'flipped' : ''}`}
-                  >
-                    {/* Front face */}
-                    <div
-                      className="tile-face tile-front grid-tile transition-colors duration-200"
-                      style={{
-                        backgroundColor: bgColor,
-                      }}
+                  {hasTarget && (
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center pulse-target"
+                      data-testid={`target-${x}-${y}`}
                     >
-                      {hasTarget && (
-                        <div 
-                          className="absolute inset-0 flex items-center justify-center pulse-target"
-                          data-testid={`target-${x}-${y}`}
-                        >
-                          <div className="w-3 h-3 rounded-full bg-[#EF4444] target-glow" />
-                        </div>
-                      )}
-
-                      <AnimatePresence>
-                        {agent && (
-                          <motion.div
-                            key={agent.agent_id}
-                            className="absolute inset-0 flex items-center justify-center z-10"
-                            initial={{ scale: 0.5, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.5, opacity: 0 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                            data-testid={`drone-${agent.agent_id}`}
-                            style={{ filter: `drop-shadow(0 0 6px ${agent.color})` }}
-                          >
-                            <DroneMarker agent={agent} size={tileSize - 2} />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      <div className="w-3 h-3 rounded-full bg-[#EF4444] target-glow" />
                     </div>
+                  )}
 
-                    {/* Back face - shows image */}
-                    <div
-                      className="tile-face tile-back"
-                      style={{
-                        backgroundImage: tileImage?.imageUrl ? `url(${tileImage.imageUrl})` : 'none',
-                        backgroundColor: '#09090B',
-                      }}
-                    >
-                      {tileImage?.isPerson && (
-                        <div className="absolute top-1 right-1 bg-[#3B82F6]/80 text-white text-[8px] px-1 py-0.5 rounded font-bold">
-                          PERSON
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <AnimatePresence>
+                    {agent && (
+                      <motion.div
+                        key={agent.agent_id}
+                        className="absolute inset-0 flex items-center justify-center z-10"
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.5, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                        data-testid={`drone-${agent.agent_id}`}
+                        style={{ filter: `drop-shadow(0 0 6px ${agent.color})` }}
+                      >
+                        <DroneMarker agent={agent} size={tileSize - 2} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })

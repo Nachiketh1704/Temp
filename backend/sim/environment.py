@@ -9,8 +9,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from agents.drone_agent import DroneAgent, Position, Message, DroneState
-from agents.ground_agent import GroundAgent
-from sim.zone_allocator import ZoneAllocator
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +70,6 @@ class SimulationEnvironment:
         self.target_positions: Set[tuple] = set()
         self.discovered_targets: Set[tuple] = set()
         self.agents: Dict[str, DroneAgent] = {}
-        self.ground_agent: Optional[GroundAgent] = None 
         self.all_tiles: Set[tuple] = set()
         self.assigned_tiles: Set[tuple] = set()
         self.visited_tiles: Set[tuple] = set()
@@ -81,12 +78,6 @@ class SimulationEnvironment:
         self.recording = False
         self.replay_log: List[dict] = []
         self.on_state_update: Optional[Callable[[dict], None]] = None
-        
-        # Zone allocator for dynamic zone assignment
-        self.zone_allocator = ZoneAllocator(self.grid_width, self.grid_height)
-        self.ticks_since_reallocation = 0
-        self.use_dynamic_zones = True  # Enable dynamic zone reallocation
-        
         self._initialize_grid()
         self._place_targets()
     
@@ -123,24 +114,6 @@ class SimulationEnvironment:
         
         return agent
     
-    def _initialize_ground_agent(self):
-        """Initialize the ground agent (master coordinator)."""
-        def send_message(msg: Message):
-            asyncio.create_task(self.message_bus.publish(msg.to_dict()))
-        
-        self.ground_agent = GroundAgent(
-            agent_id="GROUND-CONTROL",
-            grid_size=(self.grid_width, self.grid_height),
-            send_message_callback=send_message
-        )
-        
-        def handle_ground_message(msg_dict: dict):
-            msg = Message.from_dict(msg_dict)
-            self.ground_agent.receive_message(msg)
-        
-        self.message_bus.register_handler("GROUND-CONTROL", handle_ground_message)
-        logger.info("Ground Agent initialized for %dx%d grid", self.grid_width, self.grid_height)
-    
     def initialize_agents(self):
         for agent_id in list(self.agents.keys()):
             self.message_bus.unregister_handler(agent_id)
@@ -166,41 +139,22 @@ class SimulationEnvironment:
             self.agents[agent_id] = agent
             logger.info("Created agent %s at position (%d, %d)", agent_id, pos.x, pos.y)
 
-        # Initialize Ground Agent
-        self._initialize_ground_agent()
-
         self._distribute_tiles()
 
     def _distribute_tiles(self):
-        """Initial tile distribution using zone allocation."""
         tiles_list = list(self.all_tiles)
+        self.rng.shuffle(tiles_list)
         
-        # Get drone positions and batteries
-        drone_positions = {
-            agent_id: (agent.position.x, agent.position.y)
-            for agent_id, agent in self.agents.items()
-        }
-        drone_batteries = {
-            agent_id: agent.battery
-            for agent_id, agent in self.agents.items()
-        }
+        agent_list = list(self.agents.values())
+        tiles_per_agent = len(tiles_list) // len(agent_list)
         
-        # Use Voronoi-based allocation for initial distribution
-        allocation = self.zone_allocator.allocate_zones_voronoi(
-            drone_positions,
-            set(tiles_list),
-            drone_batteries
-        )
-        
-        # Optimize tile order for boustrophedon pattern
-        allocation = self.zone_allocator.optimize_for_speed(allocation, drone_positions)
-        
-        # Assign tiles to agents
-        for agent_id, tiles in allocation.items():
-            if agent_id in self.agents:
-                self.agents[agent_id].assign_tiles(tiles, ordered=True)
-                self.assigned_tiles.update(tiles)
-                logger.info("Assigned %d tiles to %s (ordered)", len(tiles), agent_id)
+        for i, agent in enumerate(agent_list):
+            start_idx = i * tiles_per_agent
+            end_idx = start_idx + tiles_per_agent if i < len(agent_list) - 1 else len(tiles_list)
+            agent_tiles = tiles_list[start_idx:end_idx]
+            agent.assign_tiles(agent_tiles)
+            self.assigned_tiles.update(agent_tiles)
+            logger.info("Assigned %d tiles to %s", len(agent_tiles), agent.agent_id)
     
     async def start(self):
         if self.state.is_running:
@@ -227,32 +181,8 @@ class SimulationEnvironment:
                 break
 
             current_time = self.state.elapsed_time
-            
-            # Collect all drone positions for collision avoidance
-            drone_positions = {
-                agent_id: (agent.position.x, agent.position.y)
-                for agent_id, agent in self.agents.items()
-            }
-            
-            # Tick all drone agents
             for agent in self.agents.values():
-                await agent.tick(current_time, self.target_positions, drone_positions)
-            
-            # Tick ground agent
-            if self.ground_agent:
-                full_state = self.get_full_state()
-                await self.ground_agent.tick(current_time, full_state)
-                
-                # Update ground agent with latest drone states
-                for agent in self.agents.values():
-                    self.ground_agent.update_drone_state(
-                        agent.agent_id,
-                        agent.get_state()
-                    )
-            
-            # Dynamic zone reallocation (Phase 3)
-            if self.use_dynamic_zones:
-                await self._check_and_reallocate_zones()
+                await agent.tick(current_time, self.target_positions)
 
             self._update_state()
             if self.on_state_update:
@@ -311,7 +241,7 @@ class SimulationEnvironment:
     
     def get_full_state(self) -> dict:
         """Full state for API/dashboard."""
-        state_dict = {
+        return {
             "config": self.config.to_dict(),
             "state": self.state.to_dict(),
             "agents": [agent.get_state() for agent in self.agents.values()],
@@ -319,17 +249,10 @@ class SimulationEnvironment:
                 "width": self.grid_width,
                 "height": self.grid_height,
                 "visited_tiles": [{"x": t[0], "y": t[1]} for t in self.visited_tiles],
-                "target_positions": [{"x": t[0], "y": t[1]} for t in self.discovered_targets],
-                "all_targets": [{"x": t[0], "y": t[1]} for t in self.target_positions]
+                "target_positions": [{"x": t[0], "y": t[1]} for t in self.discovered_targets]
             },
             "message_stats": self.message_bus.get_stats()
         }
-        
-        # Add ground agent state if available
-        if self.ground_agent:
-            state_dict["ground_agent"] = self.ground_agent.get_state()
-        
-        return state_dict
     
     def start_recording(self, filename: Optional[str] = None):
         self.recording = True
@@ -356,66 +279,3 @@ class SimulationEnvironment:
     def load_replay(cls, filepath: str) -> dict:
         with open(filepath, 'r') as f:
             return json.load(f)
-    
-    async def _check_and_reallocate_zones(self):
-        """
-        Check if zones should be reallocated and perform reallocation if needed.
-        This is Phase 3: Dynamic Zone Assignment.
-        """
-        self.ticks_since_reallocation += 1
-        
-        # Get current allocation
-        current_allocation = {
-            agent_id: list(agent.assigned_tiles - agent.visited_tiles)
-            for agent_id, agent in self.agents.items()
-        }
-        
-        # Get drone positions and batteries
-        drone_positions = {
-            agent_id: (agent.position.x, agent.position.y)
-            for agent_id, agent in self.agents.items()
-        }
-        drone_batteries = {
-            agent_id: agent.battery
-            for agent_id, agent in self.agents.items()
-        }
-        
-        # Check if reallocation is needed
-        should_reallocate = self.zone_allocator.should_reallocate(
-            current_allocation,
-            drone_positions,
-            drone_batteries,
-            self.ticks_since_reallocation,
-            min_realloc_interval=20  # Aggressive: reallocate every 20 ticks minimum
-        )
-        
-        if should_reallocate:
-            # Get all unvisited tiles
-            unvisited_tiles = self.all_tiles - self.visited_tiles
-            
-            if len(unvisited_tiles) > 0:
-                # Reallocate using Voronoi
-                new_allocation = self.zone_allocator.allocate_zones_voronoi(
-                    drone_positions,
-                    unvisited_tiles,
-                    drone_batteries
-                )
-                
-                # Optimize for speed (boustrophedon pattern)
-                new_allocation = self.zone_allocator.optimize_for_speed(
-                    new_allocation,
-                    drone_positions
-                )
-                
-                # Reassign tiles to agents
-                for agent_id, tiles in new_allocation.items():
-                    if agent_id in self.agents and len(tiles) > 0:
-                        self.agents[agent_id].reassign_tiles(tiles, ordered=True)
-                
-                logger.info(
-                    "Zone reallocation completed at tick %d. New allocation: %s",
-                    self.state.tick,
-                    {agent_id: len(tiles) for agent_id, tiles in new_allocation.items()}
-                )
-                
-                self.ticks_since_reallocation = 0

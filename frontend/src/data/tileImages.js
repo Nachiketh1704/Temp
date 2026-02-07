@@ -44,46 +44,32 @@ export const SCENERY_IMAGES = [
 ];
 
 /**
- * Generate tile image assignments for the grid
- * Places person images at target positions, scenery images elsewhere
- * @param {number} gridWidth - Width of the grid
- * @param {number} gridHeight - Height of the grid
- * @param {Array} targetPositions - Array of target positions [{x, y}, ...]
+ * Generate tile image assignments for 17x15 grid (255 tiles)
+ * 5 people images (once each) + 25 scenery images (10 times each) = 255 tiles
  */
-export function generateTileImageMap(gridWidth = 17, gridHeight = 15, targetPositions = []) {
-  const totalTiles = gridWidth * gridHeight;
+export function generateTileImageMap(gridWidth = 17, gridHeight = 15) {
+  const totalTiles = gridWidth * gridHeight; // 255
   const tileImageMap = {};
   
-  // Create target position set for quick lookup
-  const targetSet = new Set(targetPositions.map(t => `${t.x},${t.y}`));
+  // Create array of all image URLs
+  const allImages = [
+    ...PEOPLE_IMAGES, // 5 images used once
+    ...Array(10).fill(SCENERY_IMAGES).flat() // 25 images × 10 repetitions = 250
+  ];
   
-  // Shuffle person images and scenery images separately
-  const shuffledPeople = shuffleArray([...PEOPLE_IMAGES]);
-  const shuffledScenery = shuffleArray([...SCENERY_IMAGES]);
-  
-  let personIndex = 0;
-  let sceneryIndex = 0;
+  // Shuffle the images for random distribution
+  const shuffledImages = shuffleArray([...allImages]);
   
   // Assign images to tile coordinates
+  let imageIndex = 0;
   for (let y = 0; y < gridHeight; y++) {
     for (let x = 0; x < gridWidth; x++) {
       const key = `${x},${y}`;
-      
-      // If this tile has a target, assign a person image
-      if (targetSet.has(key) && personIndex < shuffledPeople.length) {
-        tileImageMap[key] = {
-          imageUrl: shuffledPeople[personIndex],
-          isPerson: true
-        };
-        personIndex++;
-      } else {
-        // Otherwise assign a scenery image
-        tileImageMap[key] = {
-          imageUrl: shuffledScenery[sceneryIndex % shuffledScenery.length],
-          isPerson: false
-        };
-        sceneryIndex++;
-      }
+      tileImageMap[key] = {
+        imageUrl: shuffledImages[imageIndex % shuffledImages.length],
+        isPerson: imageIndex < 5 ? PEOPLE_IMAGES.includes(shuffledImages[imageIndex]) : false
+      };
+      imageIndex++;
     }
   }
   

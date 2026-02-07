@@ -4,10 +4,9 @@ import random
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional, List, Set, Dict, Any, Callable, Tuple
+from typing import Optional, List, Set, Dict, Any, Callable
 from enum import Enum
 import logging
-import heapq
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +64,8 @@ class Message:
         )
 
 class DroneAgent:
-    """SAR drone: A* pathfinding, boustrophedon coverage, dynamic zones."""
+    """SAR drone: nearest-tile search, handoff at low battery, heartbeats."""
 
-    # Battery drain rates (aggressive for max speed)
     BATTERY_DRAIN_MOVE = 0.5
     BATTERY_DRAIN_IDLE = 0.1
     BATTERY_DRAIN_SCAN = 0.3
@@ -102,12 +100,6 @@ class DroneAgent:
         self.handoff_pending = False
         self.handoff_target_agent: Optional[str] = None
         
-        # New attributes for improved pathfinding and coverage
-        self.ordered_tiles: List[tuple] = []  # Tiles in optimal order
-        self.current_path: List[tuple] = []  # Cached A* path to current target
-        self.current_target: Optional[tuple] = None  # Current target tile
-        self.path_cache: Dict[tuple, List[tuple]] = {}  # Cache paths to avoid recalculation
-        
     def get_state(self) -> dict:
         return {
             "agent_id": self.agent_id,
@@ -131,7 +123,7 @@ class DroneAgent:
             payload=payload
         )
     
-    async def tick(self, current_time: float, target_positions: Set[tuple], other_drone_positions: Dict[str, tuple] = None) -> List[Message]:
+    async def tick(self, current_time: float, target_positions: Set[tuple]) -> List[Message]:
         messages_sent = []
         if self.state == DroneState.DEAD:
             return messages_sent
@@ -139,15 +131,6 @@ class DroneAgent:
             self.state = DroneState.DEAD
             return messages_sent
 
-        # Store other drone positions for collision avoidance
-        if other_drone_positions is None:
-            other_drone_positions = {}
-        
-
-        # Store other drone positions for collision avoidance
-        if other_drone_positions is None:
-            other_drone_positions = {}
-        
         await self._process_inbox()
         if current_time - self.last_heartbeat >= self.heartbeat_interval:
             heartbeat = self._create_message(
@@ -180,8 +163,7 @@ class DroneAgent:
         elif self.state == DroneState.SEARCHING:
             target_tile = self._get_nearest_unvisited_tile()
             if target_tile:
-                moved = await self._move_towards(target_tile, other_drone_positions)
-                moved = await self._move_towards(target_tile, other_drone_positions)
+                moved = await self._move_towards(target_tile)
                 if moved:
                     self.battery -= self.BATTERY_DRAIN_MOVE
                 current_pos = (self.position.x, self.position.y)
@@ -308,194 +290,26 @@ class DroneAgent:
             pass
 
     def _get_nearest_unvisited_tile(self) -> Optional[tuple]:
-        """Get next tile using ordered list or nearest-first fallback."""
         unvisited = self.assigned_tiles - self.visited_tiles
         if not unvisited:
             return None
         
-        # Use ordered tiles if available (boustrophedon pattern)
-        if self.ordered_tiles:
-            for tile in self.ordered_tiles:
-                if tile in unvisited:
-                    return tile
-        
-        # Fallback to nearest tile
         current = (self.position.x, self.position.y)
         return min(unvisited, key=lambda t: abs(t[0] - current[0]) + abs(t[1] - current[1]))
-    
-    def _astar_pathfind(
-        self, 
-        start: Tuple[int, int], 
-        goal: Tuple[int, int],
-        occupied_positions: Set[Tuple[int, int]] = None
-    ) -> List[Tuple[int, int]]:
-        """
-        A* pathfinding algorithm for optimal path from start to goal.
-        Returns list of positions from start to goal (excluding start).
-        """
-        if occupied_positions is None:
-            occupied_positions = set()
-        
-        def heuristic(pos: Tuple[int, int]) -> int:
-            # Manhattan distance
-            return abs(pos[0] - goal[0]) + abs(pos[1] - goal[1])
-        
-        def get_neighbors(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
-            neighbors = []
-            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:  # 4-directional
-                new_pos = (pos[0] + dx, pos[1] + dy)
-                if self._is_valid_position(new_pos) and new_pos not in occupied_positions:
-                    neighbors.append(new_pos)
-            return neighbors
-        
-        # Priority queue: (f_score, counter, position, path)
-        counter = 0
-        open_set = [(heuristic(start), counter, start, [])]
-        closed_set = set()
-        
-        while open_set:
-            f_score, _, current, path = heapq.heappop(open_set)
-            
-            if current == goal:
-                return path + [current]
-            
-            if current in closed_set:
-                continue
-            
-            closed_set.add(current)
-            
-            for neighbor in get_neighbors(current):
-                if neighbor not in closed_set:
-                    new_path = path + [current] if current != start else []
-                    g_score = len(new_path) + 1
-                    h_score = heuristic(neighbor)
-                    f_score = g_score + h_score
-                    
-                    counter += 1
-                    heapq.heappush(open_set, (f_score, counter, neighbor, new_path + [neighbor]))
-        
-        # No path found, return empty
-        return []
 
-    async def _move_towards(self, target: tuple, other_drone_positions: Dict[str, tuple] = None) -> bool:
-        """
-        Move towards target using A* pathfinding with collision avoidance.
-        For max speed: aggressive movement, cache paths, handle collisions efficiently.
-        """
-        if other_drone_positions is None:
-            other_drone_positions = {}
-        
-        current_pos = (self.position.x, self.position.y)
-        
-        if current_pos == target:
-            return False
-        
-        # Get occupied positions (excluding self)
-        occupied = set()
-        for agent_id, pos in other_drone_positions.items():
-            if agent_id != self.agent_id:
-                occupied.add(pos)
-        
-        # Check if we have a cached path and if it's still valid
-        if self.current_target == target and self.current_path:
-            # Check if next step in path is not blocked
-            if self.current_path and self.current_path[0] not in occupied:
-                next_pos = self.current_path.pop(0)
-                self.position.x = next_pos[0]
-                self.position.y = next_pos[1]
-                return True
-            else:
-                # Path blocked, recalculate
-                self.current_path = []
-        
-        # Calculate new path using A*
-        if self.current_target != target or not self.current_path:
-            self.current_target = target
-            path = self._astar_pathfind(current_pos, target, occupied)
-            
-            if path:
-                self.current_path = path[1:] if path[0] == current_pos else path
-            else:
-                # No path found, try simple movement
-                self.current_path = []
-        
-        # Execute next move from path
-        if self.current_path:
-            next_pos = self.current_path.pop(0)
-            if next_pos not in occupied and self._is_valid_position(next_pos):
-                self.position.x = next_pos[0]
-                self.position.y = next_pos[1]
-                return True
-        
-        # Fallback: try direct movement (aggressive mode)
+    async def _move_towards(self, target: tuple) -> bool:
         dx = target[0] - self.position.x
         dy = target[1] - self.position.y
-        
-        next_x = self.position.x
-        next_y = self.position.y
-        
+        if dx == 0 and dy == 0:
+            return False
         if abs(dx) >= abs(dy):
-            next_x += 1 if dx > 0 else -1
-            next_x += 1 if dx > 0 else -1
+            self.position.x += 1 if dx > 0 else -1
         else:
-            next_y += 1 if dy > 0 else -1
+            self.position.y += 1 if dy > 0 else -1
         
-        primary_move = (next_x, next_y)
-        
-        if primary_move not in occupied and self._is_valid_position(primary_move):
-            self.position.x = next_x
-            self.position.y = next_y
-            self.current_path = []  # Clear path since we deviated
-            return True
-        
-        # Try alternative directions
-        alternative_moves = []
-        
-        if abs(dx) >= abs(dy) and dy != 0:
-            alt_y = self.position.y + (1 if dy > 0 else -1)
-            alternative_moves.append((self.position.x, alt_y))
-        elif abs(dy) > abs(dx) and dx != 0:
-            alt_x = self.position.x + (1 if dx > 0 else -1)
-            alternative_moves.append((alt_x, self.position.y))
-        
-        for alt_pos in alternative_moves:
-            if alt_pos not in occupied and self._is_valid_position(alt_pos):
-                self.position.x = alt_pos[0]
-                self.position.y = alt_pos[1]
-                self.current_path = []  # Clear path since we deviated
-                return True
-        
-        # All moves blocked, stay in place (rare in max speed mode)
-        return False
-    
-    def _is_valid_position(self, pos: tuple) -> bool:
-        """Check if position is within grid bounds."""
-        x, y = pos
-        return 0 <= x < self.grid_size[0] and 0 <= y < self.grid_size[1]
+        return True
 
-    def assign_tiles(self, tiles: List[tuple], ordered: bool = False):
-        """
-        Assign tiles to this drone.
-        If ordered=True, tiles are already in optimal order (boustrophedon).
-        """
-        if ordered:
-            self.ordered_tiles = list(tiles)
-            self.assigned_tiles = set(tiles)
-        else:
-            self.assigned_tiles.update(tiles)
-            self.ordered_tiles = []  # Will use nearest-first fallback
-        
+    def assign_tiles(self, tiles: List[tuple]):
+        self.assigned_tiles.update(tiles)
         if self.state == DroneState.IDLE and self.assigned_tiles:
             self.state = DroneState.SEARCHING
-    
-    def reassign_tiles(self, new_tiles: List[tuple], ordered: bool = False):
-        """
-        Reassign tiles (for dynamic zone reallocation).
-        Clears previous assignment and assigns new tiles.
-        """
-        self.assigned_tiles.clear()
-        self.ordered_tiles.clear()
-        self.current_path.clear()
-        self.current_target = None
-        self.assign_tiles(new_tiles, ordered=ordered)
-        logger.info("%s: Reassigned %d tiles", self.agent_id, len(new_tiles))
