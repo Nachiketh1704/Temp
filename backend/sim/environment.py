@@ -249,7 +249,8 @@ class SimulationEnvironment:
                 "width": self.grid_width,
                 "height": self.grid_height,
                 "visited_tiles": [{"x": t[0], "y": t[1]} for t in self.visited_tiles],
-                "target_positions": [{"x": t[0], "y": t[1]} for t in self.discovered_targets]
+                "target_positions": [{"x": t[0], "y": t[1]} for t in self.target_positions],  # ✅ Correct
+                "discovered_targets": [{"x": t[0], "y": t[1]} for t in self.discovered_targets]
             },
             "message_stats": self.message_bus.get_stats()
         }
